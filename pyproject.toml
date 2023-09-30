@@ -1,0 +1,25 @@
+[tool.poetry]
+name = "poetry-plugin-appimage"
+version = "1.0.0"
+description = "Plugin that builds AppImage from a poetry project"
+authors = ["Sai Sasidhar Maddali"]
+license = "MIT"
+repository = "https://github.com/nanotemper/poetry-plugin-appimage"
+packages = [{include = "poetry_plugin_appimage"}]
+
+[tool.poetry.dependencies]
+python = "^3.7"
+poetry = "^1.5.0"
+poetry-plugin-export = "^1.4.0"
+Mako = "^1.1.5"
+
+[tool.poetry.dev-dependencies]
+pytest = "^6.2.5"
+shellcheck-py = "^0.7.2.1"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry.plugins."poetry.application.plugin"]
+build-appimage = "poetry_plugin_appimage.plugin:PoetryAppimagePlugin"
