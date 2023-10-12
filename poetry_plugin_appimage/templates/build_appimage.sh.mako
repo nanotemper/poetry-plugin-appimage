@@ -52,8 +52,7 @@ cleanup() {
 export ARCH="x86_64"
 
 # Env for linuxdeploy-plugin-conda
-export CONDA_PYTHON_VERSION="${python}"
-export MINICONDA_VERSION="${miniconda}"
+export MINICONDA_DIST="${miniconda_dist_name}"
 export PIP_REQUIREMENTS="-r requirements_for_appimage.txt"  # install argument is added by linuxdeploy-plugin-conda.sh
 export PIP_WORKDIR="$REPO_ROOT"
 export CONDA_SKIP_CLEANUP="strip;.a;cmake;doc;man;"

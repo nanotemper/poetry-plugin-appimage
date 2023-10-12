@@ -13,7 +13,7 @@ fi
 REPO_ROOT="$(dirname "$(dirname "$(readlink -fm "$0")")")"
 
 pushd "$REPO_ROOT/example_project/" || exit
-rm dist/*.AppImage
+rm -f dist/*.AppImage
 poetry install
 poetry run poetry build-appimage -b 42
 poetry env remove "$(poetry env list | awk '{print $1;}')"

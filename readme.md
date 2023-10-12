@@ -25,6 +25,11 @@ Options:
 ~~~
 
 Define the following section in your project's `pyproject.toml` with a valid [miniconda version](https://repo.anaconda.com/miniconda/) and python version. 
+If python and miniconda are defined, the corresponding distribution
+of Miniconda3-py\<**python**\>-\<**miniconda**\> will be used.
+If either is not defined, Miniconda3-latest will be used.
+
+
 Categories must be seperated by a semi-colon.
 
 ~~~

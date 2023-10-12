@@ -11,6 +11,7 @@ def metadata():
         app_name="appname with spaces",
         version="4.2.0",
         miniconda="0.2.4",
+        miniconda_dist_name="Miniconda3-py37_0.2.4-Linux-x86_64.sh",
         python="3.7",
         categories="ConsoleOnly;",
         entry_points=[],
