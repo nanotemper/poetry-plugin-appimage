@@ -19,7 +19,7 @@ show_usage() {
     echo "Variables:"
     echo "  CONDA_CHANNELS=\"channelA;channelB;...\""
     echo "  CONDA_PACKAGES=\"packageA;packageB;...\""
-    echo "  CONDA_PYTHON_VERSION=\"3.6\""
+    echo "  MINICONDA_DIST=\"Miniconda3-latest-Linux-x86_64.sh\""
     echo "  PIP_REQUIREMENTS=\"packageA packageB -r requirements.txt -e git+https://...\""
     echo "  PIP_PREFIX=\"AppDir/usr/share/conda\""
     echo "  ARCH=\"$ARCH\" (supported values: x86_64, i368, i686)"
@@ -101,33 +101,19 @@ if [ -d "$APPDIR"/usr/conda ]; then
     log "Please make sure you perform a clean build before releases to make sure your process works properly."
 fi
 
-# install Miniconda, a self contained Python distribution, into AppDir
-case "$ARCH" in
-    "x86_64")
-        miniconda_installer_filename=Miniconda3-latest-Linux-x86_64.sh
-        ;;
-    "i386"|"i686")
-        miniconda_installer_filename=Miniconda3-latest-Linux-x86.sh
-        ;;
-    *)
-        log "ERROR: Unknown Miniconda arch: $ARCH"
-        exit 1
-        ;;
-esac
-
 pushd "$CONDA_DOWNLOAD_DIR"
-    miniconda_url=https://repo.anaconda.com/miniconda/"$miniconda_installer_filename"
+    miniconda_url=https://repo.anaconda.com/miniconda/"$MINICONDA_DIST"
     # let's make sure the file exists before we then rudimentarily ensure mutual exclusive access to it with flock
     # we set the timestamp to epoch 0; this should likely trigger a redownload for the first time
-    touch "$miniconda_installer_filename" -d '@0'
+    touch "$MINICONDA_DIST" -d '@0'
 
     # now, let's download the file
-    flock "$miniconda_installer_filename" wget -N -c "$miniconda_url"
+    flock "$MINICONDA_DIST" wget -N -c "$miniconda_url"
 popd
 
 # install into usr/conda/ instead of usr/ to make sure that the libraries shipped with conda don't overwrite or
 # interfere with libraries bundled by other plugins or linuxdeploy itself
-bash "$CONDA_DOWNLOAD_DIR"/"$miniconda_installer_filename" -b -p "$APPDIR"/usr/conda -f
+bash "$CONDA_DOWNLOAD_DIR"/"$MINICONDA_DIST" -b -p "$APPDIR"/usr/conda -f
 
 # activate environment
 . "$APPDIR"/usr/conda/bin/activate
@@ -141,11 +127,6 @@ conda config --add channels conda-forge
 
 # force-install libxi, required by a majority of packages on some more annoying distributions like e.g., Arch
 #conda install -y xorg-libxi
-
-# force another python version if requested
-if [ "$CONDA_PYTHON_VERSION" != "" ]; then
-    conda install -y python="$CONDA_PYTHON_VERSION"
-fi
 
 # add channels specified via $CONDA_CHANNELS
 IFS=';' read -ra chans <<< "$CONDA_CHANNELS"

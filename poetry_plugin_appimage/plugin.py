@@ -1,17 +1,16 @@
-import os
+import platform
 import shutil
 import subprocess
 import sys
 from pathlib import Path
-from typing import List, Optional, Sequence, Union
+from typing import List, Optional
 
 from cleo.helpers import option
 from poetry.console.application import Application
 from poetry.console.commands.command import Command
 from poetry.plugins.application_plugin import ApplicationPlugin
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from mako.template import Template
-
 from poetry_plugin_export.exporter import Exporter
 
 
@@ -19,10 +18,13 @@ from poetry_plugin_export.exporter import Exporter
 class PluginMetadata:
     app_name: str
     version: str
-    miniconda: str
-    python: str
     categories: str
     entry_points: List
+    miniconda_dist_name: str
+    miniconda: str = "latest"
+    python: str = ""
+
+
 
     def __post_init__(self):
         pass
@@ -177,6 +179,19 @@ class BuildAppimageCommand(Command):
         self.line(f"Starting build for {app_name}. Version: #{version}", "comment")
 
         metadata_dict = self.poetry.pyproject.data.get("tool")["poetry-plugin-appimage"]
+        
+        # get correct miniconda distribution name from pyproject.toml
+        if platform.processor() == "x86_64":
+            target_platform_string = "x86_64"
+        elif platform.processor() == "i386":
+            target_platform_string = "x86"
+        else:
+            raise SystemError("Currently only supports x86 and amd64 architectures")
+        
+        python_version_string = f"py{metadata_dict['python'].replace('.', '')}_" if "python" in metadata_dict else ""
+        miniconda_version_string = metadata_dict['miniconda'] if "miniconda" in metadata_dict else "latest"
+        miniconda_dist_name = f"Miniconda3-{python_version_string}{miniconda_version_string}-Linux-{target_platform_string}.sh"
+
         metadata = PluginMetadata(
             **{
                 **metadata_dict,
@@ -184,10 +199,10 @@ class BuildAppimageCommand(Command):
                     "app_name": app_name,
                     "version": version,
                     "entry_points": entry_points,
+                    "miniconda_dist_name": miniconda_dist_name,
                 },
             }
         )
-
         # directory that contains the pyproject.toml file
         root_dir = self.poetry.file.path.parent
 

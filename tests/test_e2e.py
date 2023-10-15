@@ -40,7 +40,8 @@ def test_e2e_basic(appimage: str):
 def test_e2e_versions(appimage: str):
     with does_not_raise():
         op = subprocess.check_output([appimage, "main"])
-        result = json.loads(op.decode("utf8"))
+        result_string = "".join(op.decode("utf8").replace("\n","").partition('{')[1:])
+        result = json.loads(result_string)
 
     # No exception above signifies no import errors and an intact appimage
 
