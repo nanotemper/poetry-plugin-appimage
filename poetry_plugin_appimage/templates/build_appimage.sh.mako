@@ -12,9 +12,11 @@ popd () {
 
 
 if [ "$1" == "--help" ]; then
-  echo -e "Usage: $(basename "$0") BUILD_NUMBER [--local-packages]\n\n"
+  echo -e "Usage: $(basename "$0") BUILD_NUMBER [--local-packages] [--workdir WORKDIR] [--output-dir OUTPUT_DIR]\n\n"
   echo -e "FULL_BUILD_NUMBER\t\trequired argument"
   echo -e "--local-packages\toptional argument"
+  echo -e "--workdir\toptional argument"
+  echo -e "--output-dir\toptional argument (default: workdir/dist)"
   exit 0
 fi
 
@@ -25,12 +27,50 @@ if [[ -z $1 ]]; then
 fi
 FULL_BUILD_NUMBER=$1
 
-if [[ "$2" == "--local-packages" ]]; then
-    export LOCAL_PACKAGES="True"
+# Default values for options
+LOCAL_PACKAGES="False"
+WORKDIR=""
+OUTPUT_DIR=""
+
+# Parse command line options
+while [[ $# -gt 1 ]]; do
+    key="$2"
+    case $key in
+        --local-packages)
+        LOCAL_PACKAGES="True"
+        shift
+        ;;
+        --workdir)
+        WORKDIR="$3"
+        shift
+        shift
+        ;;
+        --output-dir)
+        OUTPUT_DIR="$3"
+        shift
+        shift
+        ;;
+        *)
+        # Unknown option
+        shift
+        ;;
+    esac
+done
+
+# Set default value for OUTPUT_DIR if not provided
+if [[ -z $OUTPUT_DIR ]]; then
+    OUTPUT_DIR="$WORKDIR/dist"
 fi
 
-# Absolute path of application sources
-REPO_ROOT=$(readlink -f "$(dirname "$(dirname "$0")")")
+echo "workdir is"
+echo $WORKDIR
+
+# Set REPO_ROOT based on --workdir option if given, otherwise use the default value
+if [[ -n $WORKDIR ]]; then
+    REPO_ROOT="$WORKDIR"
+else
+    REPO_ROOT=$(readlink -f "$(dirname "$(dirname "$0")")")
+fi
 
 # AppImage is saved in dist folder of repository
 mkdir -p dist
@@ -81,8 +121,10 @@ if [[ "$LOCAL_PACKAGES" == "True" ]]; then
     export PIP_REQUIREMENTS="$PIP_REQUIREMENTS $LOCAL_PACKAGES"
 fi
 
+echo "workdir is $WORKDIR"
+
 ./linuxdeploy-x86_64.AppImage --appdir AppDir --plugin copyapp --plugin conda --plugin compile -e "$(which readelf)" -i "$REPO_ROOT"/build_resources/${app_name}.png -d "$REPO_ROOT"/build_resources/${app_name}.desktop --output appimage --custom-apprun "$REPO_ROOT"/build_resources/CustomAppRun.sh
 
 # Rename the AppImage appropriately, there is only going to be one file
 mv ${app_name}*.AppImage ${app_name}-"$FULL_BUILD_NUMBER".AppImage
-mv ${app_name}* "$REPO_ROOT"/dist/
+mv ${app_name}* "$OUTPUT_DIR"
