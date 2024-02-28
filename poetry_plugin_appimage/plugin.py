@@ -46,8 +46,9 @@ class BuildResource:
     def is_mako_template(self):
         return True if ".mako" in self.filename else False
 
-    def destination_path(self, project_root) -> Path:
-        destination_dir = Path(project_root) / Path(self.destination_dir)
+    @property
+    def destination_path(self) -> Path:
+        destination_dir = Path(self.destination_dir)
         destination_dir.mkdir(exist_ok=True)
         if self.destination_filename_pattern and self.__plugin_metadata:
             destination_filename = Template(self.destination_filename_pattern).render(
@@ -55,6 +56,7 @@ class BuildResource:
             )
         else:
             destination_filename = self.filename.split(".mako")[0]
+
         return destination_dir.joinpath(destination_filename)
 
     @property
@@ -92,16 +94,15 @@ BUILD_RESOURCES = [
 _FROZEN_REQUIREMENTS_FILE = "requirements_for_appimage.txt"
 
 
-def cleanup(app_dir: Path):
+def cleanup(root_dir: Path):
     for build_resource in BUILD_RESOURCES:
-        build_resource.destination_path(app_dir).unlink()
+        build_resource.destination_path.unlink()
 
-    shutil.rmtree(app_dir / "build_resources")
-    Path(app_dir).joinpath(_FROZEN_REQUIREMENTS_FILE).unlink()
+    shutil.rmtree("build_resources")
+    Path(root_dir).joinpath(_FROZEN_REQUIREMENTS_FILE).unlink()
 
 
-    
-
+# TODO: do not use current working dir or change to project root first
 class BuildAppimageCommand(Command):
     name = "build-appimage"
     description = "Builds an AppImage for the poetry project"
@@ -126,11 +127,11 @@ class BuildAppimageCommand(Command):
             flag=True,
         ),
         option(
-            "source-directory",
-            "sd",
-            "source directory for appimage. defaults to project root but can be used to set a different root directory for the app (optional)",
+            "include-only",
+            "io",
+            "only includes one or more subfolders of the source directory in the appimage (optional).",
             flag=False,
-            default=None,   # default has to be none, filled in the template_option function
+            default=None,  
         ),
         option(
             "dependency-group",
@@ -198,7 +199,7 @@ class BuildAppimageCommand(Command):
             )
         options_dict = dict(self.poetry.pyproject.data.get("tool")["poetry-plugin-appimage"])
         self.line(f" pre parsing: {options_dict}")
-        options_dict["source-directory"] = self.template_option("source-directory", options_dict, os.getcwd())
+        options_dict["include-only"] = self.template_option("include-only", options_dict, None)
         options_dict["dependency-group"] = self.template_option("dependency-group", options_dict, None)
         options_dict["entrypoints"] = self.template_option("entrypoints", options_dict, None)
         
@@ -257,8 +258,7 @@ class BuildAppimageCommand(Command):
             }
         )
         # directory that contains the pyproject.toml file
-        self.root_dir = self.poetry.file.path.parent
-        self.app_dir = Path(options_dict["source-directory"])
+        root_dir = self.poetry.file.path.parent
 
         e = Exporter(self.poetry, self.io)
         self.line("checking for dependency groups")
@@ -268,11 +268,11 @@ class BuildAppimageCommand(Command):
                     
         e.export(
             "requirements.txt",
-            self.root_dir,
-            str(self.app_dir / _FROZEN_REQUIREMENTS_FILE),
+            root_dir,
+            _FROZEN_REQUIREMENTS_FILE,
         )
         self.line(
-            f"Generated requirements file for this project at {str(self.app_dir / _FROZEN_REQUIREMENTS_FILE)}",
+            f"Generated requirements file for this project at <ROOT>/requirements_for_appimage.txt",
             "comment",
         )
 
@@ -280,23 +280,30 @@ class BuildAppimageCommand(Command):
             build_resource.add_plugin_metadata(metadata)
 
             if build_resource.is_mako_template:
-                self.line(f"writing {build_resource.filename} to {build_resource.destination_path(self.app_dir)}")
-                with build_resource.destination_path(self.app_dir).open("w", newline="\n") as f:
+                with build_resource.destination_path.open("w", newline="\n") as f:
                     f.write(build_resource.template.render(**vars(metadata)))
             else:
-                self.line(f"copying {build_resource.source_path} to {build_resource.destination_path(self.app_dir)}")
-                shutil.copy(build_resource.source_path, build_resource.destination_path(self.app_dir))
+                shutil.copy(build_resource.source_path, build_resource.destination_path)
 
-            build_resource.destination_path(self.app_dir).chmod(build_resource.file_mode)
+            build_resource.destination_path.chmod(build_resource.file_mode)
 
         return_value = 0
-        os.makedirs(self.root_dir / "dist", exist_ok=True)
-        
         if not self.option("skip-build"):
+            options = []
+            if options_dict["include-only"] is not None:
+                options += ["--include-only", options_dict["include-only"]]
+                
             try:
-                return_value = subprocess.call(
-                    [self.app_dir / "build_appimage.sh", metadata.version, "--workdir", Path(self.app_dir).absolute(), "--output-dir", self.root_dir.absolute() / "dist" ]
-                )
+                if options_dict["include-only"] is not None:
+                    self.line(f"Only including the following directories: {options_dict['include-only']}")
+                    return_value = subprocess.call(
+                        ["./build_appimage.sh", metadata.version, "--include-only", options_dict["include-only"]]
+                    )
+                else:
+                    self.line("Including the entire source directory")
+                    return_value = subprocess.call(
+                        ["./build_appimage.sh", metadata.version]
+                    )
                 if return_value != 0:
                     self.line(
                         "Return value from build script is non-zero. Please check the logs",
@@ -311,7 +318,7 @@ class BuildAppimageCommand(Command):
 
         if not self.option("skip-cleanup"):
             self.line("Cleaning up generated build resources", "comment")
-            cleanup(self.app_dir)
+            cleanup(root_dir)
 
         return return_value
 
