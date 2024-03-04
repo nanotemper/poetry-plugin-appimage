@@ -12,10 +12,11 @@ popd () {
 
 
 if [ "$1" == "--help" ]; then
-  echo -e "Usage: $(basename "$0") BUILD_NUMBER [--local-packages] [--include-only PATHS] \n\n"
+  echo -e "Usage: $(basename "$0") BUILD_NUMBER [--local-packages] [--include-only PATHS] [--exclude-gitignore] \n\n"
   echo -e "FULL_BUILD_NUMBER\t\trequired argument"
   echo -e "--local-packages\toptional argument"
   echo -e "--include-only PATHS\toptional argument"
+  echo -e "--exclude-gitignore\toptional argument"
     exit 0
 fi
 
@@ -37,12 +38,21 @@ while [[ $# -gt 0 ]]; do
             export LINUXDEPLOY_INCLUDE_ONLY=$INCLUDE_ONLY_PATHS
             shift 2
             ;;
+        --exclude-gitignore)
+            export LINUXDEPLOY_EXCLUDE_GITIGNORE="True"
+            shift
+            ;;
         *)
             FULL_BUILD_NUMBER=$1
             shift
             ;;
     esac
 done
+
+# Set default value for LINUXDEPLOY_EXCLUDE_GITIGNORE if not provided
+if [[ -z $LINUXDEPLOY_EXCLUDE_GITIGNORE ]]; then
+    export LINUXDEPLOY_EXCLUDE_GITIGNORE="False"
+fi
 
 # Absolute path of application sources
 REPO_ROOT=$(readlink -f "$(dirname "$(dirname "$0")")")

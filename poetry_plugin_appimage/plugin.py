@@ -148,6 +148,12 @@ class BuildAppimageCommand(Command):
             flag=False,
             default = None,  # default has to be none, filled in the template_option function
         ),
+        option(
+            "exclude-gitignore",
+            "eg",
+            "exclude .gitignore from the appimage (optional)",
+            flag=True,
+        )
     ]
     
     def template_option(self, option_name, options_dict, default_value):
@@ -202,6 +208,9 @@ class BuildAppimageCommand(Command):
         options_dict["include-only"] = self.template_option("include-only", options_dict, None)
         options_dict["dependency-group"] = self.template_option("dependency-group", options_dict, None)
         options_dict["entrypoints"] = self.template_option("entrypoints", options_dict, None)
+        options_dict["exclude-gitignore"] = self.template_option("exclude-gitignore", options_dict, False)
+        options_dict["skip-cleanup"] = self.template_option("skip-cleanup", options_dict, False)
+        options_dict["skip-build"] = self.template_option("skip-build", options_dict, False)
         
         self.line(f"running with the following options: {options_dict}")
         self.line("checking for entrypoints")
@@ -288,22 +297,15 @@ class BuildAppimageCommand(Command):
             build_resource.destination_path.chmod(build_resource.file_mode)
 
         return_value = 0
-        if not self.option("skip-build"):
-            options = []
+        if not options_dict["skip-build"]:
+            command = ["./build_appimage.sh", metadata.version]
             if options_dict["include-only"] is not None:
-                options += ["--include-only", options_dict["include-only"]]
-                
+                command += ["--include-only", options_dict["include-only"]]
+            if options_dict["exclude-gitignore"]:
+                command += ["--exclude-gitignore"]
+            
             try:
-                if options_dict["include-only"] is not None:
-                    self.line(f"Only including the following directories: {options_dict['include-only']}")
-                    return_value = subprocess.call(
-                        ["./build_appimage.sh", metadata.version, "--include-only", options_dict["include-only"]]
-                    )
-                else:
-                    self.line("Including the entire source directory")
-                    return_value = subprocess.call(
-                        ["./build_appimage.sh", metadata.version]
-                    )
+                return_value = subprocess.call(command)
                 if return_value != 0:
                     self.line(
                         "Return value from build script is non-zero. Please check the logs",
@@ -316,7 +318,7 @@ class BuildAppimageCommand(Command):
                 )
                 return_value = 1
 
-        if not self.option("skip-cleanup"):
+        if not options_dict["skip-cleanup"]:
             self.line("Cleaning up generated build resources", "comment")
             cleanup(root_dir)
 
