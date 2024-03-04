@@ -12,33 +12,31 @@ def does_not_raise():
     yield
 
 
-@pytest.fixture
+@pytest.fixture(scope="session")
 def root_dir() -> Path:
     return Path(__file__).parent.parent
 
+@pytest.fixture(scope="session")
+def appimage_for_tests(root_dir):
+    subprocess.run(str(root_dir / "tests"/ "prep_for_e2e_test.sh"), cwd=root_dir, shell=True, check=True)
+    yield str((root_dir / "example_project" / "dist" / "example_project-0.1.0.42.AppImage").absolute())
+    os.remove(str((root_dir / "example_project" / "dist" / "example_project-0.1.0.42.AppImage").absolute()))
 
-@pytest.fixture
-def appimage(root_dir):
-    return str((root_dir / "example_project" / "dist" / "example_project-0.1.0.42.AppImage").absolute())
 
-@pytest.fixture
-def prep_for_e2e_test(root_dir):
-    subprocess.run()
-
-def test_e2e_basic(appimage: str):
+def test_e2e_basic(appimage_for_tests):
     assert os.path.isfile(
-        appimage
+        appimage_for_tests
     ), "AppImage does not exist in the <src>/example_project/dist/. Run prep_for_e2e_test.sh prior"
 
-    fname = appimage.split("/")[-1]
+    fname = appimage_for_tests.split("/")[-1]
     assert "0.1.0.42" in fname.lstrip("example_project-").rstrip(
         ".AppImage"
     ), "Appimage does not have the expected name"
 
 
-def test_e2e_versions(appimage: str):
+def test_e2e_versions(appimage_for_tests):
     with does_not_raise():
-        op = subprocess.check_output([appimage, "main"])
+        op = subprocess.check_output([appimage_for_tests, "main"])
         result_string = "".join(op.decode("utf8").replace("\n", "").partition("{")[1:])
         result = json.loads(result_string)
 
@@ -49,13 +47,13 @@ def test_e2e_versions(appimage: str):
     assert result["pyzmq"] == "22.2.1", "pyzmq version does not match"
 
 
-def test_e2e_return_values(appimage: str):
+def test_e2e_return_values(appimage_for_tests):
     with does_not_raise():
         # a retval of 1 signifies some runtime issue with the entry point. Run the appimage manually to see what the
         # output is
 
-        retval = subprocess.call([appimage, "retval"])
+        retval = subprocess.call([appimage_for_tests, "retval"])
         assert retval == 255, f"Expected return value to be 255. It is {retval}"
 
-        retval = subprocess.call([appimage, "retval --zero"])
+        retval = subprocess.call([appimage_for_tests, "retval --zero"])
         assert retval == 0, f"Expected return value to be 0. It is {retval}"
