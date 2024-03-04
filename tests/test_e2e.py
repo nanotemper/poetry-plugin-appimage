@@ -26,7 +26,7 @@ def appimage_for_tests(root_dir):
 def test_e2e_basic(appimage_for_tests):
     assert os.path.isfile(
         appimage_for_tests
-    ), "AppImage does not exist in the <src>/example_project/dist/. Run prep_for_e2e_test.sh prior"
+    ), "AppImage from appimage_for_tests fixture did not build correctly"
 
     fname = appimage_for_tests.split("/")[-1]
     assert "0.1.0.42" in fname.lstrip("example_project-").rstrip(
