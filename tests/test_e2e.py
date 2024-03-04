@@ -19,12 +19,11 @@ def root_dir() -> Path:
 
 @pytest.fixture
 def appimage(root_dir):
-    return str(
-        (
-            root_dir / "example_project" / "dist" / "example_project-0.1.0.42.AppImage"
-        ).absolute()
-    )
+    return str((root_dir / "example_project" / "dist" / "example_project-0.1.0.42.AppImage").absolute())
 
+@pytest.fixture
+def prep_for_e2e_test(root_dir):
+    subprocess.run()
 
 def test_e2e_basic(appimage: str):
     assert os.path.isfile(

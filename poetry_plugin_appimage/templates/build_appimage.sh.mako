@@ -26,6 +26,11 @@ if [[ -z $1 ]]; then
     exit 1
 fi
 
+# unset LINUXDEPLOY_INCLUDE_ONLY if previously set
+if [[ -n $LINUXDEPLOY_INCLUDE_ONLY ]]; then
+    unset LINUXDEPLOY_INCLUDE_ONLY
+fi
+
 # Parse command line arguments
 while [[ $# -gt 0 ]]; do
     case $1 in
