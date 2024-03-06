@@ -39,4 +39,5 @@ done
 
 # pwd will already be the build directory in tmp
 "$APPDIR"/usr/bin/python -m compileall "$APPDIR"/usr/app -f -q
-"$APPDIR"/usr/bin/python -m compileall "$APPDIR"/usr/conda/lib/python3.7/site-packages/ -f -q || true
+python_version=$(python -c "import sys; print('python{}'.format(sys.version_info.major))")
+"$APPDIR"/usr/bin/python -m compileall "$APPDIR"/usr/conda/lib/$python_version/site-packages/ -f -q || true
