@@ -48,9 +48,7 @@ class BuildResource:
         destination_dir = Path(self.destination_dir)
         destination_dir.mkdir(exist_ok=True)
         if self.destination_filename_pattern and self.__plugin_metadata:
-            destination_filename = Template(self.destination_filename_pattern).render(
-                **vars(self.__plugin_metadata)
-            )
+            destination_filename = Template(self.destination_filename_pattern).render(**vars(self.__plugin_metadata))
         else:
             destination_filename = self.filename.split(".mako")[0]
 
@@ -171,10 +169,7 @@ class BuildAppimageCommand(Command):
             self.line("Please run the command from a linux environment", "error")
             return 1
 
-        if (
-            "poetry-plugin-appimage"
-            not in self.poetry.pyproject.data.get("tool").keys()
-        ):
+        if "poetry-plugin-appimage" not in self.poetry.pyproject.data.get("tool").keys():
             self.line(
                 f"Section [tool.poetry-plugin-appimage] is not defined in pyproject.toml",
                 "error",
@@ -320,6 +315,4 @@ class BuildAppimageCommand(Command):
 
 class PoetryAppimagePlugin(ApplicationPlugin):
     def activate(self, application: Application):
-        application.command_loader.register_factory(
-            "build-appimage", lambda: BuildAppimageCommand()
-        )
+        application.command_loader.register_factory("build-appimage", lambda: BuildAppimageCommand())

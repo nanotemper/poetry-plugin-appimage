@@ -1,5 +1,6 @@
 import json
 import os
+import shutil
 import subprocess
 from contextlib import contextmanager
 from pathlib import Path
@@ -16,17 +17,16 @@ def does_not_raise():
 def root_dir() -> Path:
     return Path(__file__).parent.parent
 
+
 @pytest.fixture(scope="session")
 def appimage_for_tests(root_dir):
-    subprocess.run(str(root_dir / "tests"/ "prep_for_e2e_test.sh"), cwd=root_dir, shell=True, check=True)
+    subprocess.run(str(root_dir / "tests" / "prep_for_e2e_test.sh"), cwd=root_dir, shell=True, check=True)
     yield str((root_dir / "example_project" / "dist" / "example_project-0.1.0.42.AppImage").absolute())
     os.remove(str((root_dir / "example_project" / "dist" / "example_project-0.1.0.42.AppImage").absolute()))
 
 
 def test_e2e_basic(appimage_for_tests):
-    assert os.path.isfile(
-        appimage_for_tests
-    ), "AppImage from appimage_for_tests fixture did not build correctly"
+    assert os.path.isfile(appimage_for_tests), "AppImage from appimage_for_tests fixture did not build correctly"
 
     fname = appimage_for_tests.split("/")[-1]
     assert "0.1.0.42" in fname.lstrip("example_project-").rstrip(
@@ -57,3 +57,21 @@ def test_e2e_return_values(appimage_for_tests):
 
         retval = subprocess.call([appimage_for_tests, "retval --zero"])
         assert retval == 0, f"Expected return value to be 0. It is {retval}"
+
+
+def test_e2e_dependency_groups(root_dir, appimage_for_tests):
+    """
+    Tests that we only include the main dependency group
+    """
+    subprocess.run([appimage_for_tests, "--appimage-extract"])
+    site_packages = os.listdir(root_dir / "squashfs-root" / "usr" / "conda" / "lib" / "python3.7" / "site-packages")
+
+    # black and isort are defined in "dev" dependency group of the example project
+    # and should not be packed into the appimage
+    assert not any("black" in package_name for package_name in site_packages)
+    assert not any("isort" in package_name for package_name in site_packages)
+
+    assert any("numpy" in package_name for package_name in site_packages)
+    assert any("zmq" in package_name for package_name in site_packages)
+
+    shutil.rmtree(root_dir / "squashfs-root")
