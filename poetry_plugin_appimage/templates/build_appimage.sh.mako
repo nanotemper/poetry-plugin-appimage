@@ -12,10 +12,10 @@ popd () {
 
 
 if [ "$1" == "--help" ]; then
-  echo -e "Usage: $(basename "$0") BUILD_NUMBER [--local-packages] [--include-only PATHS] [--exclude-gitignore] \n\n"
+  echo -e "Usage: $(basename "$0") BUILD_NUMBER [--local-packages] [--include-only PATH] [--exclude-gitignore] \n\n"
   echo -e "FULL_BUILD_NUMBER\t\trequired argument"
   echo -e "--local-packages\toptional argument"
-  echo -e "--include-only PATHS\toptional argument"
+  echo -e "--include-only PATH\toptional argument"
   echo -e "--exclude-gitignore\toptional argument"
     exit 0
 fi
@@ -39,8 +39,8 @@ while [[ $# -gt 0 ]]; do
             shift
             ;;
         --include-only)
-            INCLUDE_ONLY_PATHS=$2
-            export LINUXDEPLOY_INCLUDE_ONLY=$INCLUDE_ONLY_PATHS
+            INCLUDE_ONLY_PATH=$2
+            export LINUXDEPLOY_INCLUDE_ONLY=$INCLUDE_ONLY_PATH
             shift 2
             ;;
         --exclude-gitignore)

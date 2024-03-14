@@ -10,7 +10,7 @@ show_usage() {
     echo "Usage: $script --appdir <path to AppDir>"
     echo
     echo "Copies python application sources to AppDir and sets the environment variable"
-    echo "Uses an optional environment variable LINUXDEPLOY_INCLUDE_ONLY to specify which files/folders to include"
+    echo "Uses an optional environment variable LINUXDEPLOY_INCLUDE_ONLY to specify if we only want to include one subfolder"
     echo "This is because linuxdeploy does not let me pass extra arguments."
     echo "Uses an optional environment variable LINUXDEPLOY_EXCLUDE_GITIGNORE to exclude files/folders that are ignored by git"
 }

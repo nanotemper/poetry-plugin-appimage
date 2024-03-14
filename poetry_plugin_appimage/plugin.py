@@ -124,7 +124,7 @@ class BuildAppimageCommand(Command):
         option(
             "include-only",
             "io",
-            "only includes one or more subfolders of the source directory in the appimage (optional).",
+            "Specify a subfolder. only this subfolder will be included in the build (optional).",
             flag=False,
             default=None,
         ),
