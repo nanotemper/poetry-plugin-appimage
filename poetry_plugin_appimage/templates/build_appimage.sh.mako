@@ -12,10 +12,12 @@ popd () {
 
 
 if [ "$1" == "--help" ]; then
-  echo -e "Usage: $(basename "$0") BUILD_NUMBER [--local-packages]\n\n"
+  echo -e "Usage: $(basename "$0") BUILD_NUMBER [--local-packages] [--include-only PATH] [--exclude-gitignore] \n\n"
   echo -e "FULL_BUILD_NUMBER\t\trequired argument"
   echo -e "--local-packages\toptional argument"
-  exit 0
+  echo -e "--include-only PATH\toptional argument"
+  echo -e "--exclude-gitignore\toptional argument"
+    exit 0
 fi
 
 # This script expects a command line argument with full build number (aka version identifier)
@@ -23,10 +25,38 @@ if [[ -z $1 ]]; then
     echo "FULL_BUILD_NUMBER must be supplied"
     exit 1
 fi
-FULL_BUILD_NUMBER=$1
 
-if [[ "$2" == "--local-packages" ]]; then
-    export LOCAL_PACKAGES="True"
+# unset LINUXDEPLOY_INCLUDE_ONLY if previously set
+if [[ -n $LINUXDEPLOY_INCLUDE_ONLY ]]; then
+    unset LINUXDEPLOY_INCLUDE_ONLY
+fi
+
+# Parse command line arguments
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --local-packages)
+            export LOCAL_PACKAGES="True"
+            shift
+            ;;
+        --include-only)
+            INCLUDE_ONLY_PATH=$2
+            export LINUXDEPLOY_INCLUDE_ONLY=$INCLUDE_ONLY_PATH
+            shift 2
+            ;;
+        --exclude-gitignore)
+            export LINUXDEPLOY_EXCLUDE_GITIGNORE="True"
+            shift
+            ;;
+        *)
+            FULL_BUILD_NUMBER=$1
+            shift
+            ;;
+    esac
+done
+
+# Set default value for LINUXDEPLOY_EXCLUDE_GITIGNORE if not provided
+if [[ -z $LINUXDEPLOY_EXCLUDE_GITIGNORE ]]; then
+    export LINUXDEPLOY_EXCLUDE_GITIGNORE="False"
 fi
 
 # Absolute path of application sources
@@ -70,15 +100,15 @@ if [[ "$LOCAL_PACKAGES" == "True" ]]; then
   while ! $finished; do
     read -r -p "(Press enter to skip input) Supply path to a package: " path
     if test -z "$path"; then
-    finished=true
+        finished=true
     else
         pushd "$path"
-            python3 setup.py -q sdist --dist-dir "$REPO_ROOT"/build_resources/.local_packages
+        python3 setup.py -q sdist --dist-dir "$REPO_ROOT"/build_resources/.local_packages
         popd
     fi
   done
-    LOCAL_PACKAGES=$(find "$REPO_ROOT/build_resources/.local_packages" -type f)
-    export PIP_REQUIREMENTS="$PIP_REQUIREMENTS $LOCAL_PACKAGES"
+  LOCAL_PACKAGES=$(find "$REPO_ROOT/build_resources/.local_packages" -type f)
+  export PIP_REQUIREMENTS="$PIP_REQUIREMENTS $LOCAL_PACKAGES"
 fi
 
 ./linuxdeploy-x86_64.AppImage --appdir AppDir --plugin copyapp --plugin conda --plugin compile -e "$(which readelf)" -i "$REPO_ROOT"/build_resources/${app_name}.png -d "$REPO_ROOT"/build_resources/${app_name}.desktop --output appimage --custom-apprun "$REPO_ROOT"/build_resources/CustomAppRun.sh

@@ -2,15 +2,15 @@ import platform
 import shutil
 import subprocess
 import sys
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import List, Optional
 
 from cleo.helpers import option
+from mako.template import Template
 from poetry.console.application import Application
 from poetry.console.commands.command import Command
 from poetry.plugins.application_plugin import ApplicationPlugin
-from dataclasses import dataclass, field
-from mako.template import Template
 from poetry_plugin_export.exporter import Exporter
 
 
@@ -23,8 +23,6 @@ class PluginMetadata:
     miniconda_dist_name: str
     miniconda: str = "latest"
     python: str = ""
-
-
 
     def __post_init__(self):
         pass
@@ -50,9 +48,7 @@ class BuildResource:
         destination_dir = Path(self.destination_dir)
         destination_dir.mkdir(exist_ok=True)
         if self.destination_filename_pattern and self.__plugin_metadata:
-            destination_filename = Template(self.destination_filename_pattern).render(
-                **vars(self.__plugin_metadata)
-            )
+            destination_filename = Template(self.destination_filename_pattern).render(**vars(self.__plugin_metadata))
         else:
             destination_filename = self.filename.split(".mako")[0]
 
@@ -101,6 +97,7 @@ def cleanup(root_dir: Path):
     Path(root_dir).joinpath(_FROZEN_REQUIREMENTS_FILE).unlink()
 
 
+# TODO: do not use current working dir or change to project root first
 class BuildAppimageCommand(Command):
     name = "build-appimage"
     description = "Builds an AppImage for the poetry project"
@@ -124,17 +121,55 @@ class BuildAppimageCommand(Command):
             "must be used with skip cleanup so the generated build files can be inspected and run manually (optional)",
             flag=True,
         ),
+        option(
+            "include-only",
+            "io",
+            "Specify a subfolder. only this subfolder will be included in the build (optional).",
+            flag=False,
+            default=None,
+        ),
+        option(
+            "dependency-group",
+            "dg",
+            "dependency group to use for building the appimage (optional). defaults to poetry default requirements setting."
+            "Can be used to only use specific dependencies for the appimage",
+            flag=False,
+            default=None,  # default has to be none, filled in the template_option function
+        ),
+        option(
+            "entrypoints",
+            "ep",
+            "name(s) of the entrypoint(s) for the appimage. defaults to all entrypoints defined in pyproject.toml (optional)",
+            flag=False,
+            default=None,  # default has to be none, filled in the template_option function
+        ),
+        option(
+            "exclude-gitignore",
+            "eg",
+            "exclude .gitignore from the appimage (optional)",
+            flag=True,
+        ),
     ]
+
+    def template_option(self, option_name, options_dict, default_value):
+        """
+        returns the value of the option if it is set in the command line.
+        If not, it returns the value from the pyproject.toml
+        If there is none, it returns the default value
+        """
+        if self.option(option_name) is not None:
+            return self.option(option_name)
+        else:
+            if option_name in options_dict.keys():
+                return options_dict[option_name]
+            return default_value
 
     def handle(self) -> int:
         if sys.platform != "linux":
             self.line("Please run the command from a linux environment", "error")
             return 1
 
-        if (
-            "poetry-plugin-appimage"
-            not in self.poetry.pyproject.data.get("tool").keys()
-        ):
+        if "poetry-plugin-appimage" not in self.poetry.pyproject.data.get("tool").keys():
             self.line(
                 f"Section [tool.poetry-plugin-appimage] is not defined in pyproject.toml",
                 "error",
@@ -157,17 +192,31 @@ class BuildAppimageCommand(Command):
             return 1
 
         if len(list(self.poetry.pyproject.poetry_config["scripts"].keys())) == 0:
-            self.line(
-                "No entry points defined in section [tools.poetry.scripts]", "warning"
-            )
+            self.line("No entry points defined in section [tools.poetry.scripts]", "warning")
+        options_dict = dict(self.poetry.pyproject.data.get("tool")["poetry-plugin-appimage"])
+        self.line(f" pre parsing: {options_dict}")
+        options_dict["include-only"] = self.template_option("include-only", options_dict, None)
+        options_dict["dependency-group"] = self.template_option("dependency-group", options_dict, None)
+        options_dict["entrypoints"] = self.template_option("entrypoints", options_dict, None)
+        options_dict["exclude-gitignore"] = self.template_option("exclude-gitignore", options_dict, False)
+        options_dict["skip-cleanup"] = self.template_option("skip-cleanup", options_dict, False)
+        options_dict["skip-build"] = self.template_option("skip-build", options_dict, False)
 
+        self.line(f"running with the following options: {options_dict}")
+        self.line("checking for entrypoints")
         entry_points = []
-        for entry_point_name, entry_point_def in self.poetry.pyproject.poetry_config[
-            "scripts"
-        ].items():
+        allowed_entrypoints = []
+        if options_dict["entrypoints"] is not None:
+            allowed_entrypoints += options_dict["entrypoints"].strip(" ").strip("[").strip("]").split(",")
+
+        for entry_point_name, entry_point_def in self.poetry.pyproject.poetry_config["scripts"].items():
+            if len(allowed_entrypoints) > 0 and entry_point_name not in allowed_entrypoints:
+                self.line(f"Skipping entrypoint: {entry_point_name} because it is not in allowed entrypoints setting")
+                continue
             module_name, function_def = entry_point_def.split(":")
             cmd = f'-c "import {module_name}; {module_name}.{function_def}()"'
             entry_points.append((entry_point_name, cmd))
+            self.line(f"Added entrypoint: {entry_point_name}")
 
         build_number: Optional[int] = self.option("build-number")
         version: str = self.poetry.local_config.get("version")
@@ -178,8 +227,6 @@ class BuildAppimageCommand(Command):
             version = f"{version}.{build_number}"
         self.line(f"Starting build for {app_name}. Version: #{version}", "comment")
 
-        metadata_dict = self.poetry.pyproject.data.get("tool")["poetry-plugin-appimage"]
-        
         # get correct miniconda distribution name from pyproject.toml
         if platform.processor() == "x86_64":
             target_platform_string = "x86_64"
@@ -187,17 +234,21 @@ class BuildAppimageCommand(Command):
             target_platform_string = "x86"
         else:
             raise SystemError("Currently only supports x86 and amd64 architectures")
-        
-        python_version_string = f"py{metadata_dict['python'].replace('.', '')}_" if "python" in metadata_dict else ""
-        miniconda_version_string = metadata_dict['miniconda'] if "miniconda" in metadata_dict else "latest"
-        miniconda_dist_name = f"Miniconda3-{python_version_string}{miniconda_version_string}-Linux-{target_platform_string}.sh"
 
+        python_version_string = f"py{options_dict['python'].replace('.', '')}_" if "python" in options_dict else ""
+        miniconda_version_string = options_dict["miniconda"] if "miniconda" in options_dict else "latest"
+        miniconda_dist_name = (
+            f"Miniconda3-{python_version_string}{miniconda_version_string}-Linux-{target_platform_string}.sh"
+        )
+        self.line("writing metadata")
         metadata = PluginMetadata(
             **{
-                **metadata_dict,
                 **{
                     "app_name": app_name,
                     "version": version,
+                    "categories": options_dict["categories"],
+                    "miniconda": options_dict["miniconda"],
+                    "python": options_dict["python"],
                     "entry_points": entry_points,
                     "miniconda_dist_name": miniconda_dist_name,
                 },
@@ -207,6 +258,11 @@ class BuildAppimageCommand(Command):
         root_dir = self.poetry.file.path.parent
 
         e = Exporter(self.poetry, self.io)
+        self.line("checking for dependency groups")
+        if options_dict["dependency-group"] is not None:
+            self.line(f"only using the specified dependency group {options_dict['dependency-group']}")
+            e = e.only_groups([options_dict["dependency-group"]])
+
         e.export(
             "requirements.txt",
             root_dir,
@@ -229,11 +285,15 @@ class BuildAppimageCommand(Command):
             build_resource.destination_path.chmod(build_resource.file_mode)
 
         return_value = 0
-        if not self.option("skip-build"):
+        if not options_dict["skip-build"]:
+            command = ["./build_appimage.sh", metadata.version]
+            if options_dict["include-only"] is not None:
+                command += ["--include-only", options_dict["include-only"]]
+            if options_dict["exclude-gitignore"]:
+                command += ["--exclude-gitignore"]
+
             try:
-                return_value = subprocess.call(
-                    ["./build_appimage.sh", metadata.version]
-                )
+                return_value = subprocess.call(command)
                 if return_value != 0:
                     self.line(
                         "Return value from build script is non-zero. Please check the logs",
@@ -246,7 +306,7 @@ class BuildAppimageCommand(Command):
                 )
                 return_value = 1
 
-        if not self.option("skip-cleanup"):
+        if not options_dict["skip-cleanup"]:
             self.line("Cleaning up generated build resources", "comment")
             cleanup(root_dir)
 
@@ -255,6 +315,4 @@ class BuildAppimageCommand(Command):
 
 class PoetryAppimagePlugin(ApplicationPlugin):
     def activate(self, application: Application):
-        application.command_loader.register_factory(
-            "build-appimage", lambda: BuildAppimageCommand()
-        )
+        application.command_loader.register_factory("build-appimage", lambda: BuildAppimageCommand())

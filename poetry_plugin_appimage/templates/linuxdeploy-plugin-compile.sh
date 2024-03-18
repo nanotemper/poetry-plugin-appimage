@@ -38,5 +38,7 @@ while [ "$1" != "" ]; do
 done
 
 # pwd will already be the build directory in tmp
-"$APPDIR"/usr/bin/python -m compileall "$APPDIR"/usr/app -f -q
-"$APPDIR"/usr/bin/python -m compileall "$APPDIR"/usr/conda/lib/python3.7/site-packages/ -f -q || true
+APPDIR_PYTHON="$APPDIR"/usr/bin/python
+APPDIR_PYTHON_VERSION=$($APPDIR_PYTHON -c "import sys; print('python{}'.format(sys.version_info.major))")
+$APPDIR_PYTHON -m compileall "$APPDIR"/usr/app -f -q
+$APPDIR_PYTHON -m compileall "$APPDIR"/usr/conda/lib/$APPDIR_PYTHON_VERSION/site-packages/ -f -q || true

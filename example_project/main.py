@@ -19,9 +19,7 @@ def main():
 
 
 def retval():
-    parser = argparse.ArgumentParser(
-        description="Change the return value of the program"
-    )
+    parser = argparse.ArgumentParser(description="Change the return value of the program")
     parser.add_argument(
         "--zero",
         action="store_true",

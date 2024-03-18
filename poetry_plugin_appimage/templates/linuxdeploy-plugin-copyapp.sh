@@ -10,13 +10,14 @@ show_usage() {
     echo "Usage: $script --appdir <path to AppDir>"
     echo
     echo "Copies python application sources to AppDir and sets the environment variable"
-    echo
-    echo "Variables:"
-    echo "  SRC_DIR=\"/home/sai/python_sources\""
+    echo "Uses an optional environment variable LINUXDEPLOY_INCLUDE_ONLY to specify if we only want to include one subfolder"
+    echo "This is because linuxdeploy does not let me pass extra arguments."
+    echo "Uses an optional environment variable LINUXDEPLOY_EXCLUDE_GITIGNORE to exclude files/folders that are ignored by git"
 }
 
-
 APPDIR=
+LINUXDEPLOY_INCLUDE_ONLY="$LINUXDEPLOY_INCLUDE_ONLY"
+LINUXDEPLOY_EXCLUDE_GITIGNORE="$LINUXDEPLOY_EXCLUDE_GITIGNORE"
 
 while [ "$1" != "" ]; do
     case "$1" in
@@ -50,5 +51,23 @@ fi
 mkdir -p "$APPDIR"/usr/app
 
 echo "Copying application from sources directory $SRC_DIR to [MountedAppDir]/usr/app/"
-# TODO. Make use of .gitignore in repostiory to populate exclude for rsync
-rsync -aP --exclude="build_resources" --exclude="node_modules/" --exclude="build_appimage.sh" --exclude="setup.py" --exclude="dist" --exclude="*.pyc" "$SRC_DIR"/* "$APPDIR"/usr/app/
+if [ -z "$LINUXDEPLOY_INCLUDE_ONLY" ]; then
+    if LINUXDEPLOY_EXCLUDE_GITIGNORE="True"; then
+        rsync -aP --filter=':- .gitignore' --exclude="build_resources" --exclude="node_modules/" --exclude="build_appimage.sh" --exclude="setup.py" --exclude="dist" --exclude="*.pyc" "$SRC_DIR"/* "$APPDIR"/usr/app/
+    else
+        rsync -aP --exclude="build_resources" --exclude="node_modules/" --exclude="build_appimage.sh" --exclude="setup.py" --exclude="dist" --exclude="*.pyc" "$SRC_DIR"/* "$APPDIR"/usr/app/ 
+    fi
+else
+    echo "running with include only: $LINUXDEPLOY_INCLUDE_ONLY"
+    pushd $SRC_DIR
+    find "." -path "*$LINUXDEPLOY_INCLUDE_ONLY*" -not -path "*.tox*" -not -path "$SRC_DIR/dist/*" -not -name "*.pyc" -not -path "*__pycache__*"  > files_list.txt
+    cat files_list.txt | cut -c 3- > modified_files_list.txt
+    popd
+    if LINUXDEPLOY_EXCLUDE_GITIGNORE="True"; then
+        rsync -aP --files-from="$SRC_DIR/modified_files_list.txt" --filter=':- .gitignore'  --exclude="build_resources" --exclude="node_modules/" --exclude="build_appimage.sh" --exclude="setup.py" --exclude="dist" --exclude="*.pyc" "$SRC_DIR"/ "$APPDIR"/usr/app/
+    else
+        rsync -aP --files-from="$SRC_DIR/modified_files_list.txt" --exclude="build_resources" --exclude="node_modules/" --exclude="build_appimage.sh" --exclude="setup.py" --exclude="dist" --exclude="*.pyc" "$SRC_DIR"/ "$APPDIR"/usr/app/
+    fi
+    rm "$SRC_DIR/modified_files_list.txt" "$SRC_DIR/files_list.txt"
+fi
+
