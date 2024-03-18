@@ -47,7 +47,7 @@ while [[ $# -gt 0 ]]; do
             export LINUXDEPLOY_EXCLUDE_GITIGNORE="True"
             shift
             ;;
-                *)
+        *)
             FULL_BUILD_NUMBER=$1
             shift
             ;;

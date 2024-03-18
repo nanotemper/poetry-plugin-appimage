@@ -22,6 +22,9 @@ Options:
   -b, --build-number=BUILD-NUMBER  unique build number to identify the build (optional)
   -sc, --skip-cleanup              to inspect generated build resources for the project (optional)
   -sb, --skip-build                must be used with skip cleanup so the generated build files can be inspected and run manually (optional)
+  -io, --include-only=INCLUDE-ONLY          specify a subfolder. only this subfolder will be included in the build (optional).
+  -dg, --dependency-group=DEPENDENCY-GROUP  dependency group to use for building the appimage (optional). defaults to poetry default requirements setting.Can be used to only use specific dependencies for the appimage
+  -ep, --entrypoints=ENTRYPOINTS            name(s) of the entrypoint(s) for the appimage. defaults to all entrypoints defined in pyproject.toml (optional)
 ~~~
 
 Define the following section in your project's `pyproject.toml` with a valid [miniconda version](https://repo.anaconda.com/miniconda/) and python version. 
