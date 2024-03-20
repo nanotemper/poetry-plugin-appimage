@@ -16,8 +16,6 @@ show_usage() {
 }
 
 APPDIR=
-LINUXDEPLOY_INCLUDE_ONLY="$LINUXDEPLOY_INCLUDE_ONLY"
-LINUXDEPLOY_EXCLUDE_GITIGNORE="$LINUXDEPLOY_EXCLUDE_GITIGNORE"
 
 while [ "$1" != "" ]; do
     case "$1" in
@@ -52,20 +50,23 @@ mkdir -p "$APPDIR"/usr/app
 
 echo "Copying application from sources directory $SRC_DIR to [MountedAppDir]/usr/app/"
 if [ -z "$LINUXDEPLOY_INCLUDE_ONLY" ]; then
-    if LINUXDEPLOY_EXCLUDE_GITIGNORE="True"; then
-        rsync -aP --filter=':- .gitignore' --exclude="build_resources" --exclude="node_modules/" --exclude="build_appimage.sh" --exclude="setup.py" --exclude="dist" --exclude="*.pyc" "$SRC_DIR"/* "$APPDIR"/usr/app/
+    if [ "$LINUXDEPLOY_EXCLUDE_GITIGNORE" == "True" ]; then
+        echo "running copyapp without include only and excluding files in gitignore"
+        rsync -aP --include='**.gitignore' --exclude="build_resources" --exclude="node_modules/" --exclude="build_appimage.sh" --exclude="setup.py" --exclude="dist" --exclude="*.pyc" --exclude='/.git' --filter=':- .gitignore' "$SRC_DIR"/ "$APPDIR"/usr/app/
     else
-        rsync -aP --exclude="build_resources" --exclude="node_modules/" --exclude="build_appimage.sh" --exclude="setup.py" --exclude="dist" --exclude="*.pyc" "$SRC_DIR"/* "$APPDIR"/usr/app/ 
+        echo "running copyapp without include only"
+        rsync -aP --include='**.gitignore' --exclude="build_resources" --exclude="node_modules/" --exclude="build_appimage.sh" --exclude="setup.py" --exclude="dist" --exclude="*.pyc" --exclude='/.git' "$SRC_DIR"/ "$APPDIR"/usr/app/
     fi
 else
-    echo "running with include only: $LINUXDEPLOY_INCLUDE_ONLY"
     pushd $SRC_DIR
     find "." -path "*$LINUXDEPLOY_INCLUDE_ONLY*" -not -path "*.tox*" -not -path "$SRC_DIR/dist/*" -not -name "*.pyc" -not -path "*__pycache__*"  > files_list.txt
     cat files_list.txt | cut -c 3- > modified_files_list.txt
     popd
-    if LINUXDEPLOY_EXCLUDE_GITIGNORE="True"; then
+    if [ "$LINUXDEPLOY_EXCLUDE_GITIGNORE" == "True" ]; then
+        echo "running copyapp with include only and excluding files in gitignore"
         rsync -aP --files-from="$SRC_DIR/modified_files_list.txt" --filter=':- .gitignore'  --exclude="build_resources" --exclude="node_modules/" --exclude="build_appimage.sh" --exclude="setup.py" --exclude="dist" --exclude="*.pyc" "$SRC_DIR"/ "$APPDIR"/usr/app/
     else
+        echo "running copyapp with include only"
         rsync -aP --files-from="$SRC_DIR/modified_files_list.txt" --exclude="build_resources" --exclude="node_modules/" --exclude="build_appimage.sh" --exclude="setup.py" --exclude="dist" --exclude="*.pyc" "$SRC_DIR"/ "$APPDIR"/usr/app/
     fi
     rm "$SRC_DIR/modified_files_list.txt" "$SRC_DIR/files_list.txt"
