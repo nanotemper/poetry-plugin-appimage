@@ -51,10 +51,10 @@ mkdir -p "$APPDIR"/usr/app
 echo "Copying application from sources directory $SRC_DIR to [MountedAppDir]/usr/app/"
 if [ -z "$LINUXDEPLOY_INCLUDE_ONLY" ]; then
     if [ "$LINUXDEPLOY_EXCLUDE_GITIGNORE" == "True" ]; then
-        echo "running copyapp without include only and excluding files in gitignore"
+        echo "running copyapp with the whole repo, excluding files in gitignore"
         rsync -aP --include='**.gitignore' --exclude="build_resources" --exclude="node_modules/" --exclude="build_appimage.sh" --exclude="setup.py" --exclude="dist" --exclude="*.pyc" --exclude='/.git' --filter=':- .gitignore' "$SRC_DIR"/ "$APPDIR"/usr/app/
     else
-        echo "running copyapp without include only"
+        echo "running copyapp with the whole repo"
         rsync -aP --include='**.gitignore' --exclude="build_resources" --exclude="node_modules/" --exclude="build_appimage.sh" --exclude="setup.py" --exclude="dist" --exclude="*.pyc" --exclude='/.git' "$SRC_DIR"/ "$APPDIR"/usr/app/
     fi
 else
@@ -63,10 +63,10 @@ else
     cat files_list.txt | cut -c 3- > modified_files_list.txt
     popd
     if [ "$LINUXDEPLOY_EXCLUDE_GITIGNORE" == "True" ]; then
-        echo "running copyapp with include only and excluding files in gitignore"
+        echo "running copyapp with include only " $LINUXDEPLOY_INCLUDE_ONLY ", excluding files in gitignore"
         rsync -aP --files-from="$SRC_DIR/modified_files_list.txt" --filter=':- .gitignore'  --exclude="build_resources" --exclude="node_modules/" --exclude="build_appimage.sh" --exclude="setup.py" --exclude="dist" --exclude="*.pyc" "$SRC_DIR"/ "$APPDIR"/usr/app/
     else
-        echo "running copyapp with include only"
+        echo "running copyapp with include only " $LINUXDEPLOY_INCLUDE_ONLY 
         rsync -aP --files-from="$SRC_DIR/modified_files_list.txt" --exclude="build_resources" --exclude="node_modules/" --exclude="build_appimage.sh" --exclude="setup.py" --exclude="dist" --exclude="*.pyc" "$SRC_DIR"/ "$APPDIR"/usr/app/
     fi
     rm "$SRC_DIR/modified_files_list.txt" "$SRC_DIR/files_list.txt"
