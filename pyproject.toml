@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "poetry-plugin-appimage"
-version = "0.0.2"
+version = "0.0.4"
 description = "Poetry plugin to build AppImage from a poetry project"
 readme = "readme.md"
 authors = ["Sai Sasidhar Maddali"]
